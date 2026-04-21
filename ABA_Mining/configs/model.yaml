@@ -1,0 +1,33 @@
+provider: ollama
+
+# For local serving:
+# - vLLM OpenAI-compatible server: set VLLM_BASE_URL (example: http://127.0.0.1:8000/v1)
+# - Ollama: set provider=ollama and configure ollama options below
+
+# Deterministic decoding (matches CLAR paper + benchmarking defaults)
+generation:
+  temperature: 0.0
+  top_p: 0.05
+  max_output_tokens: 800
+
+models:
+  task1: llama3.2
+  validator: llama3.2
+
+retries:
+  # Cascading validation
+  max_attempts: 3
+
+performance:
+  # Parallel requests. Tune based on your serving stack.
+  # - vLLM: start moderate (8-32) then increase while monitoring GPU utilization/latency.
+  # - Ollama: 8-32 often works; too high can cause queuing.
+  num_workers: 16
+
+ollama:
+  # These are passed to Ollama when provider=ollama.
+  options:
+    num_ctx: 2048
+    num_batch: 512
+    num_thread: 16
+
