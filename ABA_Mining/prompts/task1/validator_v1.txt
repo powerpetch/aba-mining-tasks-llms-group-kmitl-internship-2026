@@ -30,11 +30,19 @@ VALIDATION RULES (you must satisfy ALL):
 7. If a span contains MIXED sentiment for the same topic, SPLIT into separate items (one Positive, one Negative).
 8. Sentiment is PER SPAN — a positive statement in the "Negative" section is still "Positive".
 
+CRITICAL FORMAT — apply to every topic without exception:
+  NEVER: "Food": null
+  ALWAYS: "Food": [{"text": null, "label": null}] ; (unmentioned topic)
+  ALWAYS: "Food": [{"text": "exact text", "label": "Positive"}] ; (mentioned topic)
+  If any topic value is null, an empty list [], or missing entirely — fix it immediately.
+
 FIX INSTRUCTIONS:
+- For "None is not of type 'array'" errors: replace the bare null with [{"text": null, "label": null}].
 - For spans not found verbatim: find the closest matching substring from the review and copy it exactly.
 - For missing topics: add them with [{"text": null, "label": null}].
 - For extra topics: remove them.
 - For wrong labels: correct to "Positive" or "Negative" based on the span's actual sentiment.
 - For mixed-sentiment spans: split into separate items.
+- For empty arrays []: replace with [{"text": null, "label": null}].
 
 OUTPUT ONLY the corrected JSON object on a single line (compact, no newlines, no indentation). No explanation. No markdown. No backticks.

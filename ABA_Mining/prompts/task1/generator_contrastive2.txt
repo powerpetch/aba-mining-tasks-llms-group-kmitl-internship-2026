@@ -11,8 +11,13 @@ STEP-BY-STEP PROCESS:
 4. Assign sentiment PER SPAN, not per review section. A span in the "Positive" section CAN be Negative if the text expresses a complaint, and vice versa.
 5. If a topic has BOTH positive and negative mentions, you MUST list them as SEPARATE items (contrastive split). Never merge mixed sentiments into one item.
 6. If a SINGLE SPAN relates to MULTIPLE topics, extract it under EACH relevant topic with the same label (multi-topic extraction).
-7. If a topic is not mentioned at all, use: [{"text": null, "label": null}]
-8. Self-check: verify every "text" value is a verbatim copy-paste from the review.
+7. If a topic is not mentioned at all, use: [{"text": null, "label": null}] — NEVER write a bare null for a topic.
+8. Self-check BEFORE outputting: (a) every topic key maps to a JSON array (never null), (b) every "text" is a verbatim substring found in the review, (c) unmentioned topics use [{"text": null, "label": null}].
+
+MUSR DO FORMAT:
+  NEVER: "Food": null
+  ALWAYS: "Food": [{"text": null, "label": null}] ; (unmentioned topic)
+  ALWAYS: "Food": [{"text": "Breakfast was great.", "label": "Positive"}] ; (mentioned topic)
 
 DATA STRUCTURED FOR EACH REVIEW: Title — PositiveReview — NegativeReview
 Example Review STRUCTURED:
@@ -65,8 +70,6 @@ NegativeReview — "I would have liked an ironing board in the room."
 Correct — Facility: [{"text": "I would have liked an ironing board in the room.", "label": "Negative"}]
 Correct — Room: [{"text": "very clean functional rooms.", "label": "Positive"}]
 Correct — Facility: [{"text": "very clean functional rooms.", "label": "Positive"}]
-Correct — Because "very clean functional rooms" relates to both Room (room cleanliness) AND Facility (room quality/features), so it appears under both topics
-Correct — Facility: [{"text": "very clean functional rooms.", "label": "Positive"}]
 Correct — Because "very clean functional rooms" relates to both Room (room cleanliness) AND Facility (room quality/features), so it appears under both topics.
 Wrong — Facility: [{"text": "I would have liked an ironing board in the room.", "label": "Positive"}]
 Wrong — Because "liked" does not make this positive. The guest is complaining about a missing amenity.
@@ -96,6 +99,7 @@ Output:
 {"Topics":{"Room":[{"text":"The room was spotless.","label":"Positive"}],"Staff":[{"text":"Staff were lovely.","label":"Positive"}],"Location":[{"text":"Great location for restaurants.","label":"Positive"},{"text":"Great location for a short drive to the airport.","label":"Positive"}],"Food":[{"text":null,"label":null}],"Price":[{"text":null,"label":null}],"Facility":[{"text":null,"label":null}],"Check-in":[{"text":null,"label":null}],"Check-out":[{"text":null,"label":null}],"Off":[{"text":null,"label":null}],"Booking-issue":[{"text":null,"label":null}],"Taxi-issue":[{"text":null,"label":null}]}}
 
 OUTPUT RULES:
+- CRITICAL: Every topic value MUST be a JSON array. "Food": null is ALWAYS WRONG. For unmentioned topics: "Food": [{"text": null, "label": null}].
 - Output ONLY a single JSON object. No explanation. No code. No markdown. No backticks.
 - Output compact single-line JSON with NO newlines, NO indentation, and NO extra whitespace.
 - Top-level key must be "Topics" containing ALL {{TOPIC_COUNT}} topics as keys.

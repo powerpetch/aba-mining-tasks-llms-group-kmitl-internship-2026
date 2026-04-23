@@ -8,11 +8,13 @@ provider: ollama
 generation:
   temperature: 0.0
   top_p: 0.05
-  max_output_tokens: 800
+  max_output_tokens: 1500   # increased from 800; 11-topic JSON can exceed 800 tokens
 
 models:
-  task1: llama3.2
-  validator: llama3.2
+  task1: llama4:scout
+  validator: llama4:scout
+  # Other available models on this machine:
+  # llama3.2-vision:11b-instruct-q8_0  (vision model)
 
 retries:
   # Cascading validation
@@ -22,12 +24,13 @@ performance:
   # Parallel requests. Tune based on your serving stack.
   # - vLLM: start moderate (8-32) then increase while monitoring GPU utilization/latency.
   # - Ollama: 8-32 often works; too high can cause queuing.
-  num_workers: 16
+  num_workers: 8
 
 ollama:
   # These are passed to Ollama when provider=ollama.
+  # num_ctx: 4096 is required — combined prompt template alone is ~2000 tokens;
+  # add review text and you exceed the old 2048 limit, causing truncation.
   options:
-    num_ctx: 2048
+    num_ctx: 4096
     num_batch: 512
     num_thread: 16
-
