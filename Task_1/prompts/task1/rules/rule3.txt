@@ -1,0 +1,18 @@
+[Rule 3: Sentiment by Actual Content, Not by Section Name] — The label must reflect the actual sentiment expressed by the words, not which section (PositiveReview or NegativeReview) the text appears in.
+
+Review:
+PositiveReview — ""
+NegativeReview — "Lovely little hotel with very friendly staff. Breakfast was excellent."
+Correct — Staff: [{"text": "very friendly staff.", "label": "Positive"}]
+Correct — Food: [{"text": "Breakfast was excellent.", "label": "Positive"}]
+Correct — Because the words express positive opinions. Label by actual sentiment, NOT by section header.
+Wrong — Staff: [{"text": "very friendly staff.", "label": "Negative"}]
+Wrong — Because the label was based on the section name ("NegativeReview"), not the actual words.
+
+Review:
+PositiveReview — "Staff is very polite and caring. Thank you"
+NegativeReview — "Surrounding buildings are under construction and poorly lit."
+Correct — Off: [{"text": "Surrounding buildings are under construction and poorly lit.", "label": "Negative"}]
+Correct — Because construction and poor lighting are objectively negative, regardless of which section they appear in.
+Wrong — Off: [{"text": "Surrounding buildings are under construction and poorly lit.", "label": "Positive"}]
+Wrong — Because section name never determines sentiment. Read the words and decide.

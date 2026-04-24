@@ -1,0 +1,19 @@
+[Rule 5: Null Handling — All Topics Required] — ALL {{TOPIC_COUNT}} topics MUST appear as keys in the output. Unmentioned topics use [{"text": null, "label": null}]. A bare null value, an empty array [], and a missing key are all WRONG.
+
+Review:
+PositiveReview — "Close to airport"
+NegativeReview — ""
+Correct — Location: [{"text": "Close to airport", "label": "Positive"}]
+Correct — Food: [{"text": null, "label": null}]
+Correct — Room: [{"text": null, "label": null}]
+Correct — Staff: [{"text": null, "label": null}]
+... (all other topics also with [{"text": null, "label": null}])
+Correct — Because ALL {{TOPIC_COUNT}} topics must appear as keys. Unmentioned ones use [{"text": null, "label": null}].
+Wrong — Food: null
+Wrong — Because each topic value MUST be a JSON array. A bare null is never allowed.
+Wrong — Food: [{"text": null, "label": "Positive"}]
+Wrong — Because when text is null, label must also be null.
+Wrong — Food: []
+Wrong — Because an empty array is never allowed. Always include at least [{"text": null, "label": null}].
+Wrong — Omitting Food from the output entirely.
+Wrong — Because ALL {{TOPIC_COUNT}} topics must be present as keys, with no exceptions.

@@ -88,10 +88,9 @@ def load_task1_instances_from_input(paths: PathsConfig, limit_reviews: int | Non
         if skipped < offset_reviews:
             skipped += 1
             continue
-        title = (g["Title"].iloc[0] if "Title" in g.columns else "") or ""
         pos = (g["PositiveReview"].iloc[0] if "PositiveReview" in g.columns else "") or ""
         neg = (g["NegativeReview"].iloc[0] if "NegativeReview" in g.columns else "") or ""
-        review_text = f'Title — "{title.strip()}"\nPositiveReview — "{pos.strip()}"\nNegativeReview — "{neg.strip()}"'
+        review_text = f'PositiveReview — "{pos.strip()}"\nNegativeReview — "{neg.strip()}"'
         instances.append(Task1Instance(review_id=str(review_id), review_text=review_text))
 
         if limit_reviews is not None and len(instances) >= limit_reviews:
@@ -109,7 +108,9 @@ def run_task1(
     paths_cfg: PathsConfig,
     limit_reviews: int = 20,
     offset_reviews: int = 0,
-    prompt_path: str = "prompts/task1/generator_v1.txt",
+    prompt_path: str | None = "prompts/task1/generator_v1.txt",
+    prompt_template: str | None = None,
+    output_label: str | None = None,
     validator_path: str = "prompts/task1/validator_v1.txt",
     max_retries: int = 2,
     output_subdir: str | None = None,
@@ -119,10 +120,15 @@ def run_task1(
         out_dir = out_dir / output_subdir
     out_dir.mkdir(parents=True, exist_ok=True)
     model_name = model_cfg.task1_model.replace(":", "_").replace("/", "_")
-    prompt_label = Path(prompt_path).stem  # e.g. "generator_v1", "generator_contrastive1"
+    prompt_label = output_label or (Path(prompt_path).stem if prompt_path else "custom")
     out_path = out_dir / f"task1_{model_name}_{topics_cfg.active_schema}_{prompt_label}_n{limit_reviews}.jsonl"
 
-    gen_template = load_prompt(repo_root, prompt_path)
+    if prompt_template is None:
+        if prompt_path is None:
+            raise ValueError("Provide either prompt_path or prompt_template.")
+        gen_template = load_prompt(repo_root, prompt_path)
+    else:
+        gen_template = prompt_template
     val_template = load_prompt(repo_root, validator_path)
     topics_str = ", ".join(topics_cfg.topics)
     topic_count = str(len(topics_cfg.topics))

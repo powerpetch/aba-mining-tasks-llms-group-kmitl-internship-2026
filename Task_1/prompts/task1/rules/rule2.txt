@@ -1,0 +1,18 @@
+[Rule 2: Topic Assignment] — Assign each span to the topic it is ACTUALLY about. Never put a span under an unrelated topic, even if that topic appears nearby in the text.
+
+Review:
+PositiveReview — "We had a really pleasant stay! The staff was very nice and helpful! The room was very clean, well decorated and modern. Also, the breakfast was amazing, fresh and handmade! Especially vegetarian version with humus."
+NegativeReview — ""
+Correct — Food: [{"text": "the breakfast was amazing, fresh and handmade!", "label": "Positive"}]
+Correct — Because breakfast is about food, so it goes under Food, not Staff.
+Wrong — Staff: [{"text": "the breakfast was amazing, fresh and handmade!", "label": "Positive"}]
+Wrong — Because breakfast is not about Staff. Assign each span to the topic it is genuinely about.
+
+Review:
+PositiveReview — "We wanted a hotel for a night that is close to the airport and this hotel did that purpose more than fair. There are some restaurants and bars next to the beach just 10min of walking distance from the hotel."
+NegativeReview — "The receptionist didn't speak English properly, and you have a feeling that people are living in the hotel, rather than staying at a hotel."
+Correct — Staff: [{"text": "The receptionist didn't speak English properly,", "label": "Negative"}]
+Correct — Location: [{"text": "There are some restaurants and bars next to the beach just 10min of walking distance from the hotel.", "label": "Positive"}]
+Correct — Because "The receptionist" is only about Staff; "restaurants and bars next to the beach" is only about Location.
+Wrong — Putting "The receptionist" under both Staff AND Check-in.
+Wrong — Because never duplicate a span into unrelated topics. Only assign to the topics a span genuinely describes.

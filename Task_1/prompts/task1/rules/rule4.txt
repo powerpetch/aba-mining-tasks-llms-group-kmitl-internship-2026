@@ -1,0 +1,9 @@
+[Rule 4: Contrastive Split] — If a topic has BOTH positive and negative mentions, extract them as SEPARATE items in the same array. Never merge opposite sentiments into one item, and never omit the minority sentiment.
+
+Review:
+PositiveReview — "Room was perfect, looked new, clean shiny tiled floors and bathroom tiles, just every inch perfect and clean. Bed was really comfortable, lots of room for me to put my things..."
+NegativeReview — "Fridge could have been put on beforehand so it was cold, the shower took a while to get hot, had to have a cold shower one morning as i needed to get out early."
+Correct — Room: [{"text": "Room was perfect, looked new, clean shiny tiled floors and bathroom tiles, just every inch perfect and clean.", "label": "Positive"}, {"text": "Fridge could have been put on beforehand so it was cold,", "label": "Negative"}]
+Correct — Because both the positive and negative span about Room are listed as SEPARATE items in the same array.
+Wrong — Room: [{"text": "Room was perfect, looked new, clean shiny tiled floors and bathroom tiles, just every inch perfect and clean.", "label": "Positive"}]
+Wrong — Because the negative fridge span was ignored. Include ALL relevant spans for a topic, even if they have opposite sentiments.

@@ -1,0 +1,17 @@
+[Rule 1: Verbatim Copying] — Copy the text span EXACTLY as it appears: same characters, same casing, same punctuation, same spacing. Never paraphrase, never rewrite, never alter a single character.
+
+Review:
+PositiveReview — "We had a really pleasant stay! The staff was very nice and helpful! The room was very clean, well decorated and modern, although not big. Also, the breakfast was amazing, fresh and handmade!"
+NegativeReview — ""
+Correct — Staff: [{"text": "The staff was very nice and helpful!", "label": "Positive"}]
+Correct — Because the text is a verbatim substring of the review, including casing and exclamation mark.
+Wrong — Staff: [{"text": "The staff was friendly and helpful", "label": "Positive"}]
+Wrong — Because "friendly" is a paraphrase of "very nice". Never change the wording.
+
+Review:
+PositiveReview — "nice location, lovely personal, renovated,"
+NegativeReview — "nothing"
+Correct — Location: [{"text": "nice location,", "label": "Positive"}]
+Correct — Because the text matches exactly including lowercase "nice" and the trailing comma.
+Wrong — Location: [{"text": "Nice location", "label": "Positive"}]
+Wrong — Because "nice" was capitalized to "Nice" and the comma was removed. Copy character-for-character.
