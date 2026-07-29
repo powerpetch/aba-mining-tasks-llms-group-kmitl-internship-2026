@@ -7,8 +7,11 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-# Ensure the local src/ package is found before any installed 'src' PyPI package
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Ensure the repository root and ABA_mining folder are on sys.path
+REPO_ROOT = Path(__file__).resolve().parent
+WORKSPACE_ROOT = REPO_ROOT.parent.parent
+for path in (REPO_ROOT, WORKSPACE_ROOT):
+    sys.path.insert(0, str(path))
 
 from dotenv import load_dotenv
 
@@ -33,6 +36,8 @@ Examples:
   python run_task2.py --model llama3.2 --num-versions 3  # run 3 versions automatically
         """,
     )
+    parser.add_argument("model_name", nargs="?", default=None,
+                        help="Optional positional model alias for --model")
     parser.add_argument("--n", type=int, default=None,
                         help="Max instances to process (default: all)")
     parser.add_argument("--offset", type=int, default=0,
@@ -45,7 +50,7 @@ Examples:
                         help="Number of versions to run (default: 1). Use --num-versions 3 for 3 versions.")
     args = parser.parse_args()
 
-    repo_root = Path(__file__).resolve().parent
+    repo_root = REPO_ROOT
     load_dotenv(repo_root / ".env", override=False)
 
     model_cfg = load_model_config(repo_root)
@@ -54,8 +59,9 @@ Examples:
     # Override output path to use ABA_mining/outputs
     paths_cfg = replace(paths_cfg, task1_dir=repo_root / "outputs" / "task1")
 
-    if args.model:
-        model_cfg = replace(model_cfg, task1_model=args.model, validator_model=args.model)
+    model_override = args.model or args.model_name
+    if model_override:
+        model_cfg = replace(model_cfg, task1_model=model_override, validator_model=model_override)
 
     client = build_client(model_cfg.provider, ollama_options=model_cfg.ollama_options)
     model_folder = model_cfg.task1_model.replace(":", "_").replace("/", "_").replace("-", "_")
