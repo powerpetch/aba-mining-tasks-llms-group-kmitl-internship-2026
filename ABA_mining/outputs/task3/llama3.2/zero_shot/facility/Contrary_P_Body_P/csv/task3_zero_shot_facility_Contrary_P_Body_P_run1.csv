@@ -1,0 +1,21 @@
+ID,Prompt,PhraseA,PhraseB,Test 1
+820,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is welcoming_hotel. Phrase A is no_evident_not_not_big_hotel.
+",no_evident_not_not_big_hotel,welcoming_hotel,No
+3649,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is beautifully_kept_hotel. Phrase A is no_evident_not_spacious_hotel.
+",no_evident_not_spacious_hotel,beautifully_kept_hotel,Yes
+9013,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is clean_hotel. Phrase A is no_evident_not_small_hotel_which_we_like.
+",no_evident_not_small_hotel_which_we_like,clean_hotel,Yes
+20953,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is feel_welcome_from_arrival_moment. Phrase A is no_evident_not_spotless_hotel.
+",no_evident_not_spotless_hotel,feel_welcome_from_arrival_moment,Yes
+24300,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is cozy_atmosphere. Phrase A is no_evident_not_as_expected_hotel.
+",no_evident_not_as_expected_hotel,cozy_atmosphere,No

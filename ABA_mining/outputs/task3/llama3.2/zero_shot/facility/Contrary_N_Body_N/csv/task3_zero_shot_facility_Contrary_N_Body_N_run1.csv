@@ -1,0 +1,21 @@
+ID,Prompt,PhraseA,PhraseB,Test 1
+1086,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is main_door_not_close. Phrase A is have_evident_no_safety_strip_on_stair.
+",have_evident_no_safety_strip_on_stair,main_door_not_close,Yes
+1747,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is not_easy_parking. Phrase A is have_evident_low_doorway_leading_to_elevator.
+",have_evident_low_doorway_leading_to_elevator,not_easy_parking,Yes
+2173,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is not_EU_regulation_ramp. Phrase A is have_evident_limited_parking.
+",have_evident_limited_parking,not_EU_regulation_ramp,Yes
+4145,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is pool_close. Phrase A is have_evident_young_hotel.
+",have_evident_young_hotel,pool_close,No
+4405,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is limited_facility. Phrase A is have_evident_not_encourage_to_use_deckchair.
+",have_evident_not_encourage_to_use_deckchair,limited_facility,Yes

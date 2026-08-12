@@ -1,0 +1,21 @@
+Timestamp,Run,ID,PhraseA,PhraseB,Prompt,RawOutput
+2026-08-10 01:38:36,1,9013,no_evident_not_small_hotel_which_we_like,clean_hotel,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is clean_hotel. Phrase A is no_evident_not_small_hotel_which_we_like.
+",Yes
+2026-08-10 01:38:36,1,20953,no_evident_not_spotless_hotel,feel_welcome_from_arrival_moment,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is feel_welcome_from_arrival_moment. Phrase A is no_evident_not_spotless_hotel.
+",Yes
+2026-08-10 01:38:36,1,3649,no_evident_not_spacious_hotel,beautifully_kept_hotel,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is beautifully_kept_hotel. Phrase A is no_evident_not_spacious_hotel.
+",Yes
+2026-08-10 01:38:36,1,820,no_evident_not_not_big_hotel,welcoming_hotel,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is welcoming_hotel. Phrase A is no_evident_not_not_big_hotel.
+",No
+2026-08-10 01:38:36,1,24300,no_evident_not_as_expected_hotel,cozy_atmosphere,"Is phrase B contrary to phrase A? Answer exactly 'Yes' or 'No' only. Do not provide any extra text.
+
+[Question] Phrase B is cozy_atmosphere. Phrase A is no_evident_not_as_expected_hotel.
+",No
