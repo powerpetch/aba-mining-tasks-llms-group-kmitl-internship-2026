@@ -319,7 +319,42 @@ order. Re-ran the evaluator afterward to confirm scores were unaffected (matchin
 row position) — the table above reflects the post-fix numbers. `log/*.csv` files are left as
 chronological timestamped logs on purpose (matching mu_work's own log design), not ID-sorted.
 
-## 9. Files added / changed
+## 9. Data fidelity verification — cross-checked against mu_team's own files
+
+Before presenting these results, I directly verified that our gold data (`Dataset/Task3/*.csv`)
+is the same data mu_team used — not just "the same source in principle." I cross-checked every
+row's Phrase A / Phrase B against mu_team's own raw prediction CSVs (which carry the exact
+PhraseA/PhraseB/ID they pulled from their Silver spreadsheets when they ran their own models):
+
+| Topic | Rows | Phrase A match | Phrase B match |
+|---|---|---|---|
+| check-in | 252 | 100% | 100% |
+| price | 455 | 100% | 100% |
+| staff | 6,256 | 100% | 100% |
+| check-out | 8 | 100% | 0% (see note) |
+
+check-in, price, and staff — 99.9% of the data by row count — are byte-for-byte identical to
+what mu_team used.
+
+**check-out note:** our check-out data (constant Phrase B tested against 8 different
+assumptions) matches the actual Silver spreadsheet and matches Task 3's intended design (a
+candidate proposition checked against several different assumptions). mu_team's own *run output*
+for check-out instead shows Phrase B equal to Phrase A's own body form on every row — consistent
+with a column-mapping bug in their script for that one file (`Task3.py` hardcodes
+`PHRASE_A_COL = "Assumption"` with no fallback, while Phrase B has a fallback chain; check-out is
+also their smallest file, at 8 rows, easiest to have gone unnoticed). This means our check-out
+data matches the original Silver source; the discrepancy appears to be in mu_team's own
+processing of that file, not in ours.
+
+**Bonus finding, not yet acted on:** mu_team's evaluation folder (`Task3, Evaluation Score/`)
+contains the actual human `Vote` labels for the 3 polarity categories we don't have yet
+(`Contrary(N)Body(P)`, `Contrary(P)Body(P)`, `Contrary(N)Body(N)`), for all 4 topics — joinable
+with the phrase pairs in their raw prediction CSVs to reconstruct real (not fabricated) gold data
+for them. Not pursued yet — it's a large amount of data (~49,000 pairs across the 3 categories)
+and running our full prompt sweep against it is a multi-hour job, deferred as a next step rather
+than rushed before this meeting.
+
+## 10. Files added / changed
 
 | File | Change |
 |---|---|

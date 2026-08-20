@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import csv as csv_mod
 import random
 import re
+import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -319,8 +321,15 @@ def run_task3(
           one worksheet per category actually present for that aspect (varies — see
           INCOMPLETE_ASPECT_CATEGORIES; check-in/check-out/price/staff only have
           Contrary(P)Body(N), facility also has Contrary(P)Body(P) and Contrary(N)Body(N))
+
+    Checkpointing: each prediction is written to run_csv/run_log the moment it completes
+    (thread-safe, one row at a time), not buffered until the whole (aspect, category) batch
+    finishes. If the process is killed mid-batch — e.g. a remote server closing partway through
+    a large category — everything already completed stays on disk; re-running the exact same
+    command later (resume=True, the default) picks up only the remaining un-processed pairs.
     """
     template = load_prompt(repo_root, prompt_path)
+    write_lock = threading.Lock()
 
     def _predict_one(prompt: str) -> dict[str, Any]:
         resp = client.complete(
@@ -332,6 +341,17 @@ def run_task3(
         )
         prediction = normalize_yes_no(resp.text)
         return {"prediction": prediction, "raw_output": resp.text}
+
+    def _append_row(path: Path, cols: list[str], row_dict: dict[str, Any]) -> None:
+        """Appends one CSV row immediately, writing the header first if the file is new.
+        Locked so concurrent worker threads can't interleave writes to the same file."""
+        with write_lock:
+            is_new = not path.exists()
+            with path.open("a", newline="", encoding="utf-8") as f:
+                writer = csv_mod.writer(f)
+                if is_new:
+                    writer.writerow(cols)
+                writer.writerow([row_dict[c] for c in cols])
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -361,6 +381,8 @@ def run_task3(
             run_csv = csv_dir / f"{run_base}_run{run_idx}.csv"
             run_log = log_dir / f"{run_base}_run{run_idx}.csv"
             test_col = f"Test {run_idx}"
+            run_csv_cols = ["ID", "Prompt", "PhraseA", "PhraseB", test_col]
+            log_cols = ["Timestamp", "Run", "ID", "PhraseA", "PhraseB", "Prompt", "RawOutput"]
 
             df_input = pd.DataFrame([
                 {
@@ -372,12 +394,15 @@ def run_task3(
                 for inst in aspect_instances
             ])
 
+            if not resume:
+                # "ignore existing output and re-run everything" — start this run's files clean
+                # rather than merging with old data.
+                run_csv.unlink(missing_ok=True)
+                run_log.unlink(missing_ok=True)
+
             done_keys = _load_done_keys(run_csv) if resume else set()
             todo_mask = ~(df_input["ID"] + "||" + df_input["PhraseA"] + "||" + df_input["PhraseB"]).isin(done_keys)
             todo = df_input[todo_mask]
-
-            new_run_rows: list[dict[str, Any]] = []
-            new_log_rows: list[dict[str, Any]] = []
 
             if len(todo):
                 with ThreadPoolExecutor(max_workers=model_cfg.num_workers) as ex:
@@ -387,46 +412,35 @@ def run_task3(
                                      desc=f"Task3[{aspect}][{category}][{label} run{run_idx}]"):
                         row = futs[fut]
                         result = fut.result()
-                        new_run_rows.append({
+                        # Checkpoint: written to disk the instant it completes, not batched.
+                        _append_row(run_csv, run_csv_cols, {
                             "ID": row["ID"], "Prompt": row["Prompt"],
                             "PhraseA": row["PhraseA"], "PhraseB": row["PhraseB"],
                             test_col: result["prediction"],
                         })
-                        new_log_rows.append({
+                        _append_row(run_log, log_cols, {
                             "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             "Run": run_idx, "ID": row["ID"],
                             "PhraseA": row["PhraseA"], "PhraseB": row["PhraseB"],
                             "Prompt": row["Prompt"], "RawOutput": result["raw_output"],
                         })
 
-            if new_run_rows:
-                new_df = pd.DataFrame(new_run_rows, columns=["ID", "Prompt", "PhraseA", "PhraseB", test_col])
-                if run_csv.exists():
-                    existing = pd.read_csv(run_csv, dtype=str).fillna("")
-                    combined = pd.concat([existing, new_df], ignore_index=True)
-                    combined = combined.drop_duplicates(subset=["ID", "PhraseA", "PhraseB"], keep="last")
-                else:
-                    combined = new_df
-
-                # Rows arrive out of order — ThreadPoolExecutor/as_completed() yields results in
-                # whichever order the LLM responds, not submission order. Reorder to match
-                # df_input's original (gold-file) order so the csv reads top-to-bottom by ID,
-                # same as the _sheet.xlsx wide table (built from df_input directly) already does.
+            if run_csv.exists():
+                # Tidy pass: dedupe defensively and reorder to match df_input's gold-file order —
+                # incremental writes land in whatever order the LLM responded, not gold order
+                # (same as the _sheet.xlsx wide table, which is built from df_input directly).
+                on_disk = pd.read_csv(run_csv, dtype=str).fillna("")
+                on_disk = on_disk.drop_duplicates(subset=["ID", "PhraseA", "PhraseB"], keep="last")
                 order = {
                     key: i for i, key in enumerate(
                         df_input["ID"] + "||" + df_input["PhraseA"] + "||" + df_input["PhraseB"]
                     )
                 }
-                combined["_order"] = (
-                    combined["ID"] + "||" + combined["PhraseA"] + "||" + combined["PhraseB"]
+                on_disk["_order"] = (
+                    on_disk["ID"] + "||" + on_disk["PhraseA"] + "||" + on_disk["PhraseB"]
                 ).map(order)
-                combined = combined.sort_values("_order").drop(columns="_order").reset_index(drop=True)
-                combined.to_csv(run_csv, index=False)
-
-                new_log_df = pd.DataFrame(new_log_rows,
-                    columns=["Timestamp", "Run", "ID", "PhraseA", "PhraseB", "Prompt", "RawOutput"])
-                new_log_df.to_csv(run_log, index=False, mode=("a" if run_log.exists() else "w"),
-                                   header=not run_log.exists())
+                on_disk = on_disk.sort_values("_order").drop(columns="_order").reset_index(drop=True)
+                on_disk.to_csv(run_csv, index=False)
 
             wide = _build_master_wide(df_input, csv_dir, run_base, n_runs)
             sheet_xlsx = sheet_dir / f"{run_base}_sheet.xlsx"

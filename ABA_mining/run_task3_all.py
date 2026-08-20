@@ -4,10 +4,21 @@
 Runs run_task3.py once per prompt version, so a full sweep across all prompt
 variants is a single command instead of 8 separate ones.
 
+Checkpointed: every prediction is written to disk the instant it completes (see
+src/task3.py::run_task3), and this script re-checks each version's own resume state before
+moving on, so if the process gets killed partway through (e.g. a remote server closing) — for
+ANY reason, mid-version or between versions — just re-run the exact same command. Already
+completed prompt versions/runs/pairs are skipped automatically; nothing is lost or redone.
+
+If a single version errors out (as opposed to the whole process dying), that version is
+logged and skipped so the rest of the sweep still runs — re-run the same command afterward to
+retry just the failed one.
+
 Usage:
   python run_task3_all.py llama3.2 --aspects check-in check-out price staff
   python run_task3_all.py llama3.2 --versions zero_shot contrary_v3   # subset
   python run_task3_all.py llama4:scout --n-runs 1 --n 20              # quick test, all versions
+  python run_task3_all.py qwen3.8:27b --aspects check-in check-out price staff   # resumable server run
 """
 
 from __future__ import annotations
@@ -52,6 +63,7 @@ def main() -> None:
                   f"(expected under {PROMPTS_DIR.relative_to(REPO_ROOT)}/)")
 
     model = args.model or args.model_name
+    failed: list[str] = []
 
     for i, version in enumerate(args.versions, 1):
         cmd = [sys.executable, str(REPO_ROOT / "run_task3.py")]
@@ -74,10 +86,24 @@ def main() -> None:
         print(f"\n{'#' * 70}")
         print(f"[{i}/{len(args.versions)}] Prompt version: {version}")
         print(f"{'#' * 70}")
-        subprocess.run(cmd, cwd=REPO_ROOT, check=True)
+        try:
+            subprocess.run(cmd, cwd=REPO_ROOT, check=True)
+        except subprocess.CalledProcessError as e:
+            failed.append(version)
+            print(f"\n[ERROR] '{version}' exited with code {e.returncode} — "
+                  f"continuing to the next version.")
+            print(f"        Already-completed pairs for '{version}' are safe on disk (checkpointed). "
+                  f"Re-run this same command later to retry the rest of it.")
+            continue
 
     print(f"\n{'=' * 70}")
-    print(f"All {len(args.versions)} prompt version(s) completed.")
+    if failed:
+        print(f"{len(args.versions) - len(failed)}/{len(args.versions)} prompt version(s) completed. "
+              f"Failed: {', '.join(failed)}")
+        print("Re-run this exact command to retry the failed version(s) and pick up any "
+              "partially-completed ones — already-finished pairs are skipped automatically.")
+    else:
+        print(f"All {len(args.versions)} prompt version(s) completed.")
     print(f"{'=' * 70}")
 
 

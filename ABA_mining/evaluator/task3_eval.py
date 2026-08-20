@@ -98,12 +98,38 @@ def compute_metrics(vote: pd.Series, pred: pd.Series, positive_label: str) -> di
     fp = int(((y_true == negative_label) & (y_pred == positive_label)).sum())
     fn = int(((y_true == positive_label) & (y_pred == negative_label)).sum())
 
-    precision = safe_div0(tp, tp + fp)
-    recall = safe_div0(tp, tp + fn)
-    f1 = safe_div0(2 * precision * recall, precision + recall)
-    accuracy = safe_div0(tp + tn, tp + tn + fp + fn)
+    precision = round(safe_div0(tp, tp + fp), 6)
+    recall = round(safe_div0(tp, tp + fn), 6)
+    f1 = round(safe_div0(2 * precision * recall, precision + recall), 6)
+    accuracy = round(safe_div0(tp + tn, tp + tn + fp + fn), 6)
     return {"N_valid": n, "TP": tp, "TN": tn, "FP": fp, "FN": fn,
             "Precision": precision, "Recall": recall, "F1": f1, "Accuracy": accuracy}
+
+
+def _write_txt_companion(xlsx_path: Path, sheets: list[tuple[str, pd.DataFrame]]) -> None:
+    """Writes a plain-text companion next to an .xlsx (same stem, .txt), one section per
+    sheet — readable directly in an editor without an Excel/spreadsheet viewer extension."""
+    lines: list[str] = []
+    for name, df in sheets:
+        lines.append("=" * 70)
+        lines.append(name)
+        lines.append("=" * 70)
+        lines.append(df.to_string(index=False) if not df.empty else "(empty)")
+        lines.append("")
+    xlsx_path.with_suffix(".txt").write_text("\n".join(lines), encoding="utf-8")
+
+
+_METRIC_COLS = ["Precision", "Recall", "F1", "Accuracy"]
+
+
+def _round_metrics(df: pd.DataFrame, decimals: int = 6) -> pd.DataFrame:
+    """Rounds whichever metric columns are present, so the .xlsx cell itself holds the same
+    rounded value shown in the .txt companion — not just a display-level truncation."""
+    df = df.copy()
+    for c in _METRIC_COLS:
+        if c in df.columns:
+            df[c] = df[c].round(decimals)
+    return df
 
 
 def _find_prediction_sheets() -> list[Path]:
@@ -159,6 +185,7 @@ def evaluate_one(model: str, label: str, aspect: str, category: str, pred_xlsx: 
     out_xlsx = out_dir / f"{category}.xlsx"
 
     summary_rows = []
+    sheets_for_txt: list[tuple[str, pd.DataFrame]] = []
     with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
         for tcol in test_cols:
             tmp = pdf[["ID", tcol]].copy()
@@ -169,6 +196,7 @@ def evaluate_one(model: str, label: str, aspect: str, category: str, pred_xlsx: 
             tmp["Verify"] = [classify_verify(g, p, positive_label) for g, p in zip(tmp["Vote"], tmp["LLM_Output"])]
             tmp = tmp[["ID", "Vote", "LLM_Output", "Verify"]]
             tmp.to_excel(writer, sheet_name=tcol, index=False)
+            sheets_for_txt.append((tcol, tmp))
 
             met = compute_metrics(tmp["Vote"], tmp["LLM_Output"], positive_label)
             met.update({"Model": model, "Shot": label, "Topic": aspect, "Category": category,
@@ -180,8 +208,10 @@ def evaluate_one(model: str, label: str, aspect: str, category: str, pred_xlsx: 
              "N_valid", "TP", "TN", "FP", "FN", "Precision", "Recall", "F1", "Accuracy"]
         ]
         summary_df.to_excel(writer, sheet_name="SUMMARY", index=False)
+        sheets_for_txt.append(("SUMMARY", summary_df))
 
-    print(f"  [OK] {aspect} | {model} | {label} | {category} -> {out_xlsx.relative_to(REPO_ROOT)}")
+    _write_txt_companion(out_xlsx, sheets_for_txt)
+    print(f"  [OK] {aspect} | {model} | {label} | {category} -> {out_xlsx.relative_to(REPO_ROOT)} (+ .txt)")
     return summary_df
 
 
@@ -193,8 +223,9 @@ def write_eval_summary(aspect: str, model: str, label: str, combined_df: pd.Data
     cols = ["Model", "Shot", "Topic", "Category", "Test", "Positive_Label",
             "N_valid", "TP", "TN", "FP", "FN", "Precision", "Recall", "F1", "Accuracy"]
 
+    all_df = combined_df[cols]
     with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
-        combined_df[cols].to_excel(writer, sheet_name="ALL", index=False)
+        all_df.to_excel(writer, sheet_name="ALL", index=False)
 
         group_cols = ["Model", "Shot", "Topic", "Category", "Positive_Label"]
         tot = combined_df.groupby(group_cols, as_index=False)[["N_valid", "TP", "TN", "FP", "FN"]].sum()
@@ -202,18 +233,39 @@ def write_eval_summary(aspect: str, model: str, label: str, combined_df: pd.Data
         tot["Recall"] = safe_div_series(tot["TP"], tot["TP"] + tot["FN"])
         tot["F1"] = safe_div_series(2 * tot["Precision"] * tot["Recall"], tot["Precision"] + tot["Recall"])
         tot["Accuracy"] = safe_div_series(tot["TP"] + tot["TN"], tot["TP"] + tot["TN"] + tot["FP"] + tot["FN"])
-        tot[group_cols + ["Precision", "Recall", "F1", "Accuracy", "N_valid", "TP", "TN", "FP", "FN"]].to_excel(
-            writer, sheet_name="MICRO_BY_CATEGORY", index=False
-        )
-    print(f"  [EVAL_SUMMARY] {out_path.relative_to(REPO_ROOT)}")
+        tot = _round_metrics(tot)
+        micro_df = tot[group_cols + ["Precision", "Recall", "F1", "Accuracy", "N_valid", "TP", "TN", "FP", "FN"]]
+        micro_df.to_excel(writer, sheet_name="MICRO_BY_CATEGORY", index=False)
+
+    _write_txt_companion(out_path, [("ALL", all_df), ("MICRO_BY_CATEGORY", micro_df)])
+    print(f"  [EVAL_SUMMARY] {out_path.relative_to(REPO_ROOT)} (+ .txt)")
 
 
-def write_master_summary(all_rows: list[pd.DataFrame]) -> None:
+# mu_team's own Task 3 scope, confirmed by checking every one of their scripts — see
+# Task3_Implementation_Report.md §6. Facility (and any other topic) is data this project
+# gathered beyond what mu_team ever ran.
+MU_WORK_TOPICS = ["check-in", "check-out", "price", "staff"]
+
+
+def write_master_summary(
+    all_rows: list[pd.DataFrame],
+    topics: list[str] | None = None,
+    out_path: Path | None = None,
+) -> None:
+    """topics=None writes the full summary (every topic evaluated so far). Pass a topic list
+    (e.g. MU_WORK_TOPICS) to write a scoped-down summary instead, at out_path."""
     if not all_rows:
         print("\n[WARN] No evaluated rows — nothing to summarize.")
         return
 
     master_df = pd.concat(all_rows, ignore_index=True)
+    if topics is not None:
+        master_df = master_df[master_df["Topic"].isin(topics)]
+        if master_df.empty:
+            print(f"\n[WARN] No rows left after filtering to topics={topics}")
+            return
+
+    out_path = out_path or MASTER_SUMMARY_XLSX
     cols = ["Model", "Shot", "Topic", "Category", "Test", "Positive_Label",
             "N_valid", "TP", "TN", "FP", "FN", "Precision", "Recall", "F1", "Accuracy"]
     all_eval_summary = master_df[cols].copy()
@@ -222,7 +274,14 @@ def write_master_summary(all_rows: list[pd.DataFrame]) -> None:
         master_df.groupby(["Model", "Shot", "Topic", "Category", "Positive_Label"], as_index=False)
         .agg({"Precision": "mean", "Recall": "mean", "F1": "mean", "Accuracy": "mean"})
     )
+    avg_metrics = _round_metrics(avg_metrics)
 
+    # Best-scoring run (of the 3 repeated runs) per (Model, Shot, Topic, Category) — one column,
+    # joined on the row's own Shot. (A previous version pivoted "Shot" into separate wide
+    # columns and joined only on Model/Topic/Category/Positive_Label, which — since that key
+    # doesn't pin down a single Shot — broadcast every shot's best-test pick onto every other
+    # shot's row for the same topic. That's what caused the repeated/duplicated-looking values,
+    # most visible for facility since it's missing several shots and left them as stray NaNs.)
     best_pick = (
         master_df.sort_values(
             by=["Model", "Shot", "Topic", "Category", "Positive_Label", "F1", "Accuracy", "Recall", "Precision"],
@@ -231,27 +290,88 @@ def write_master_summary(all_rows: list[pd.DataFrame]) -> None:
         .groupby(["Model", "Shot", "Topic", "Category", "Positive_Label"], as_index=False)
         .first()
     )
-
-    best_test_wide = (
-        best_pick[["Model", "Shot", "Topic", "Category", "Positive_Label", "Test"]]
-        .pivot_table(index=["Model", "Topic", "Category", "Positive_Label"], columns="Shot",
-                      values="Test", aggfunc="first")
-        .reset_index()
+    best_test = best_pick[["Model", "Shot", "Topic", "Category", "Positive_Label", "Test"]].rename(
+        columns={"Test": "Best Test"}
     )
-    fixed_cols = ["Model", "Topic", "Category", "Positive_Label"]
-    shot_cols = sorted(c for c in best_test_wide.columns if c not in fixed_cols)
-    best_test_wide = best_test_wide[fixed_cols + shot_cols].rename(columns={c: f"Best Test ({c})" for c in shot_cols})
 
     avg_by_model_shot_topic_cat = avg_metrics.merge(
-        best_test_wide, on=["Model", "Topic", "Category", "Positive_Label"], how="left"
+        best_test, on=["Model", "Shot", "Topic", "Category", "Positive_Label"], how="left"
     ).sort_values(by=["Model", "Shot", "Topic", "Category"]).reset_index(drop=True)
 
     EVAL_BASE.mkdir(parents=True, exist_ok=True)
-    with pd.ExcelWriter(MASTER_SUMMARY_XLSX, engine="openpyxl") as writer:
+    with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
         all_eval_summary.to_excel(writer, sheet_name="ALL_EVAL_SUMMARY", index=False)
         avg_by_model_shot_topic_cat.to_excel(writer, sheet_name="AVG_BY_MODEL_SHOT_TOPIC_CAT", index=False)
 
-    print(f"\n[MASTER SUMMARY SAVED] {MASTER_SUMMARY_XLSX.relative_to(REPO_ROOT)}")
+    _write_txt_companion(out_path, [
+        ("ALL_EVAL_SUMMARY", all_eval_summary),
+        ("AVG_BY_MODEL_SHOT_TOPIC_CAT", avg_by_model_shot_topic_cat),
+    ])
+    print(f"\n[MASTER SUMMARY SAVED] {out_path.relative_to(REPO_ROOT)} (+ .txt)")
+
+
+def write_sheet_summary(
+    all_rows: list[pd.DataFrame],
+    topics: list[str] | None = None,
+    out_path: Path | None = None,
+) -> None:
+    """Writes a flat CSV for pasting straight into a Google Sheet: one row per
+    (Model, Version, Run), aggregated across every topic/category evaluated for that combo.
+    Mirrors the Model/Version/Run + Macro+Micro Precision/Recall/F1/Accuracy layout of the
+    existing Task 2 tracking sheet, generalized to Task 3 (no Head/Body split needed here —
+    Task 3 only classifies one thing: Yes/No contrary).
+
+    topics=None aggregates every topic evaluated so far; pass a topic list (e.g.
+    MU_WORK_TOPICS) to scope the aggregation down to just those topics.
+    """
+    if not all_rows:
+        return
+    master_df = pd.concat(all_rows, ignore_index=True)
+    if topics is not None:
+        master_df = master_df[master_df["Topic"].isin(topics)]
+        if master_df.empty:
+            print(f"[WARN] No rows left after filtering to topics={topics}")
+            return
+    group_cols = ["Model", "Shot", "Test"]
+
+    macro = master_df.groupby(group_cols, as_index=False)[["Precision", "Recall", "F1", "Accuracy"]].mean()
+    macro = macro.rename(columns={"Precision": "Macro Precision", "Recall": "Macro Recall",
+                                   "F1": "Macro F1", "Accuracy": "Macro Accuracy"})
+
+    pooled = master_df.groupby(group_cols, as_index=False)[["TP", "TN", "FP", "FN", "N_valid"]].sum()
+    pooled["Micro Precision"] = safe_div_series(pooled["TP"], pooled["TP"] + pooled["FP"])
+    pooled["Micro Recall"] = safe_div_series(pooled["TP"], pooled["TP"] + pooled["FN"])
+    pooled["Micro F1"] = safe_div_series(2 * pooled["Micro Precision"] * pooled["Micro Recall"],
+                                          pooled["Micro Precision"] + pooled["Micro Recall"])
+    pooled["Micro Accuracy"] = safe_div_series(pooled["TP"] + pooled["TN"],
+                                                pooled["TP"] + pooled["TN"] + pooled["FP"] + pooled["FN"])
+
+    topics_covered = (
+        master_df.groupby(group_cols)["Topic"]
+        .apply(lambda s: ", ".join(sorted(set(s))))
+        .reset_index()
+        .rename(columns={"Topic": "Topics"})
+    )
+
+    out = macro.merge(
+        pooled[group_cols + ["N_valid", "Micro Precision", "Micro Recall", "Micro F1", "Micro Accuracy"]],
+        on=group_cols,
+    ).merge(topics_covered, on=group_cols)
+
+    out = out.rename(columns={"Shot": "Version", "Test": "Run"})
+    out["Run"] = out["Run"].str.replace("Test ", "", regex=False)
+
+    metric_cols = ["Macro Precision", "Macro Recall", "Macro F1", "Macro Accuracy",
+                   "Micro Precision", "Micro Recall", "Micro F1", "Micro Accuracy"]
+    for c in metric_cols:
+        out[c] = out[c].round(4)
+
+    out = out[["Model", "Version", "Run", "Topics", "N_valid"] + metric_cols]
+    out = out.sort_values(["Model", "Version", "Run"]).reset_index(drop=True)
+
+    csv_path = out_path or (EVAL_BASE / "TASK3_SUMMARY_FOR_SHEETS.csv")
+    out.to_csv(csv_path, index=False)
+    print(f"[SHEET SUMMARY] {csv_path.relative_to(REPO_ROOT)}  ({len(out)} rows)")
 
 
 def main() -> None:
@@ -286,7 +406,17 @@ def main() -> None:
             write_eval_summary(aspect, model, label, combined_df)
             all_rows.append(combined_df)
 
-    write_master_summary(all_rows)
+    # Default output is scoped to mu_team's own 4-topic scope (check-in/check-out/price/staff)
+    # so it's directly comparable to their results without extra filtering. The full picture
+    # (including facility and anything else evaluated) is the explicitly-named ALL_TOPICS file.
+    write_master_summary(all_rows, topics=MU_WORK_TOPICS)
+    write_master_summary(
+        all_rows, out_path=EVAL_BASE / "TASK3_VERIFY_MASTER_SUMMARY_ALL_TOPICS.xlsx",
+    )
+    write_sheet_summary(all_rows, topics=MU_WORK_TOPICS)
+    write_sheet_summary(
+        all_rows, out_path=EVAL_BASE / "TASK3_SUMMARY_FOR_SHEETS_ALL_TOPICS.csv",
+    )
 
 
 if __name__ == "__main__":
