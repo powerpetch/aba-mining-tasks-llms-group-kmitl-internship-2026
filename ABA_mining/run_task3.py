@@ -7,15 +7,16 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-# Ensure the repository root and ABA_mining folder are on sys.path
+# Import this script's own sibling src/ folder directly (not via a hardcoded
+# "internship.ABA_mining.src" dotted path) — location-independent regardless of what the
+# containing folder is named or how deep it's nested, so cloning/copying this project
+# anywhere still works without import errors.
 REPO_ROOT = Path(__file__).resolve().parent
-WORKSPACE_ROOT = REPO_ROOT.parent.parent
-for path in (REPO_ROOT, WORKSPACE_ROOT):
-    sys.path.insert(0, str(path))
+sys.path.insert(0, str(REPO_ROOT))
 
 from dotenv import load_dotenv
 
-from internship.ABA_mining.src import (
+from src import (
     build_client,
     load_model_config,
     load_paths_config,
