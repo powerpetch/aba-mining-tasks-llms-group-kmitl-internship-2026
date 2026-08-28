@@ -65,8 +65,9 @@ ALL_CATEGORIES = ["Contrary(P)Body(N)", "Contrary(N)Body(P)", "Contrary(P)Body(P
 # isn't finished. Remove an entry once its Vote/Contrary? column is fully populated (see
 # Task3_Implementation_Report.md).
 INCOMPLETE_ASPECT_CATEGORIES: set[tuple[str, str]] = {
-    ("facility", "Contrary(P)Body(N)"),  # only 1-of-N annotators done, aggregate Vote column empty
-    ("facility", "Contrary(N)Body(P)"),  # not started, no annotator columns at all
+    # facility Contrary(P)Body(N) is now fully voted as of the "(Gold)" workbook (12,060/12,060
+    # Vote populated, confirmed 2026-09-04) -- no longer listed here.
+    ("facility", "Contrary(N)Body(P)"),  # still 0/12060 Vote populated, not started
 }
 
 # Default cap on instances per (aspect, category) group when a full run isn't practical
@@ -218,10 +219,31 @@ def load_task3_instances(
         df = pd.read_csv(csv_path, dtype=str)
         instances.extend(_extract_rows(df, "Contrary(P)Body(N)", aspect, csv_path.name))
 
+    # Multiple xlsx workbooks can match the same aspect (e.g. a "(Gold)" workbook superseding
+    # an older "(Silver)" one once voting finishes) -- load exactly ONE per aspect, never both,
+    # or every category gets double-counted. Prefer "(Gold)" > "(Silver)" > whatever's left,
+    # by filename.
+    xlsx_by_aspect: dict[str, list[Path]] = {}
     for xlsx_path in sorted(task3_dir.glob("*.xlsx")):
         aspect = aspect_from_filename(xlsx_path)
         if aspects and aspect not in aspects:
             continue
+        xlsx_by_aspect.setdefault(aspect, []).append(xlsx_path)
+
+    def _xlsx_priority(path: Path) -> int:
+        name_lower = path.name.lower()
+        if "(gold)" in name_lower:
+            return 0
+        if "(silver)" in name_lower:
+            return 1
+        return 2
+
+    for aspect, candidates in xlsx_by_aspect.items():
+        candidates.sort(key=_xlsx_priority)
+        xlsx_path = candidates[0]
+        if len(candidates) > 1:
+            print(f"[task3] Multiple xlsx files match aspect '{aspect}': "
+                  f"{[c.name for c in candidates]} -- using '{xlsx_path.name}' only.")
 
         xl = pd.ExcelFile(xlsx_path)
         for category in wanted_categories:
